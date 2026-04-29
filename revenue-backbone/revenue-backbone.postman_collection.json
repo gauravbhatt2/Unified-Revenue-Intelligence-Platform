@@ -1,0 +1,322 @@
+{
+  "info": {
+    "name": "Revenue Data Backbone — POC",
+    "description": "Complete API test collection for the Revenue Data Backbone system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "tenantId", "value": "" },
+    { "key": "accountId", "value": "" },
+    { "key": "contactAId", "value": "" },
+    { "key": "contactBId", "value": "" },
+    { "key": "dealId", "value": "" },
+    { "key": "interactionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Tenants",
+      "item": [
+        {
+          "name": "Create Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('tenantId', res.id);",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Has tenant ID', () => pm.expect(res.id).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/tenants",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"slug\": \"acme-corp\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/tenants"
+          }
+        },
+        {
+          "name": "Get Tenant By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/tenants/{{tenantId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Ingestion",
+      "item": [
+        {
+          "name": "Ingest Email Interaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('interactionId', res.interactionId);",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Success true', () => pm.expect(res.success).to.be.true);",
+                  "pm.test('Has interactionId', () => pm.expect(res.interactionId).to.be.a('string'));",
+                  "pm.test('Participants resolved', () => pm.expect(res.participantsResolved).to.equal(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/ingest",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"type\": \"email\",\n  \"timestamp\": \"2024-01-15T10:00:00Z\",\n  \"participants\": [\n    {\n      \"email\": \"alice@example.com\",\n      \"firstName\": \"Alice\",\n      \"lastName\": \"Smith\",\n      \"role\": \"sender\"\n    },\n    {\n      \"email\": \"bob@client.com\",\n      \"firstName\": \"Bob\",\n      \"lastName\": \"Jones\",\n      \"role\": \"recipient\"\n    }\n  ],\n  \"summary\": \"Discussed Q1 proposal details\",\n  \"subject\": \"Q1 Enterprise Proposal\",\n  \"direction\": \"outbound\",\n  \"source\": \"api\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Ingest Call Interaction",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/ingest",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"type\": \"call\",\n  \"timestamp\": \"2024-01-16T14:30:00Z\",\n  \"participants\": [\n    {\n      \"email\": \"alice@example.com\",\n      \"role\": \"attendee\"\n    },\n    {\n      \"email\": \"carol@partner.com\",\n      \"firstName\": \"Carol\",\n      \"role\": \"attendee\"\n    }\n  ],\n  \"summary\": \"Follow-up call on Q1 proposal\",\n  \"direction\": \"inbound\",\n  \"source\": \"api\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Ingest Meeting (with Deal)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/ingest",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"type\": \"meeting\",\n  \"timestamp\": \"2024-01-20T09:00:00Z\",\n  \"participants\": [\n    {\n      \"email\": \"alice@example.com\",\n      \"role\": \"attendee\"\n    },\n    {\n      \"email\": \"bob@client.com\",\n      \"role\": \"attendee\"\n    }\n  ],\n  \"summary\": \"Contract negotiation meeting\",\n  \"subject\": \"Q1 Contract Review\",\n  \"dealId\": \"{{dealId}}\",\n  \"source\": \"api\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Ingest — Invalid Type (expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/ingest",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"type\": \"sms\",\n  \"timestamp\": \"2024-01-15T10:00:00Z\",\n  \"participants\": [\n    { \"email\": \"alice@example.com\", \"role\": \"sender\" }\n  ]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Accounts",
+      "item": [
+        {
+          "name": "List Accounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.length > 0) {",
+                  "  pm.collectionVariables.set('accountId', res[0].id);",
+                  "}",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(res).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/accounts?tenantId={{tenantId}}",
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Get Account Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/accounts/{{accountId}}?tenantId={{tenantId}}",
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Get Account Interactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(res).to.be.an('array'));",
+                  "pm.test('Has participants', () => {",
+                  "  if (res.length > 0) {",
+                  "    pm.expect(res[0]).to.have.property('participants');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/accounts/{{accountId}}/interactions?tenantId={{tenantId}}",
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Export",
+      "item": [
+        {
+          "name": "Export Account — JSON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has account', () => pm.expect(res).to.have.property('account'));",
+                  "pm.test('Has interactions', () => pm.expect(res).to.have.property('interactions'));",
+                  "pm.test('Has totalInteractions', () => pm.expect(res).to.have.property('totalInteractions'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/export/account/{{accountId}}?tenantId={{tenantId}}&format=json",
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" },
+                { "key": "format", "value": "json" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Account — CSV",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/export/account/{{accountId}}?tenantId={{tenantId}}&format=csv",
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" },
+                { "key": "format", "value": "csv" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Compliance",
+      "item": [
+        {
+          "name": "Opt-Out Contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('isOptedOut is true', () => pm.expect(res.isOptedOut).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/contacts/{{contactAId}}/opt-out?tenantId={{tenantId}}",
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Export After Opt-Out (verify exclusion)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Opted-out interactions excluded', () => {",
+                  "  for (const interaction of res.interactions) {",
+                  "    for (const p of interaction.participants) {",
+                  "      pm.expect(p.email).to.not.equal('alice@example.com');",
+                  "    }",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/export/account/{{accountId}}?tenantId={{tenantId}}&format=json",
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" },
+                { "key": "format", "value": "json" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Opt-In Contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('isOptedOut is false', () => pm.expect(res.isOptedOut).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/contacts/{{contactAId}}/opt-in?tenantId={{tenantId}}",
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

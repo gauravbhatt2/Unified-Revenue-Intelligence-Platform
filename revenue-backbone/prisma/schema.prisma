@@ -1,0 +1,215 @@
+// Revenue Data Backbone — Prisma Schema
+// Multi-tenant relational model
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ComplianceExportMode {
+  EXCLUDE_INTERACTION
+  REDACT_PARTICIPANT
+}
+
+// ─── Tenant ─────────────────────────────────────────────────────────────────
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  accounts            Account[]
+  contacts            Contact[]
+  deals               Deal[]
+  interactions        Interaction[]
+  rawInteractions     RawInteraction[]
+  exportLogs          ExportLog[]
+  complianceSetting   ComplianceSetting?
+
+  @@map("tenants")
+}
+
+// ─── Account ─────────────────────────────────────────────────────────────────
+model Account {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  domain    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  contacts     Contact[]
+  deals        Deal[]
+  interactions Interaction[]
+
+  @@unique([tenantId, domain])
+  @@index([tenantId])
+  @@map("accounts")
+}
+
+// ─── Contact ─────────────────────────────────────────────────────────────────
+model Contact {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  accountId   String?  @map("account_id")
+  email       String
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  isOptedOut  Boolean  @default(false) @map("is_opted_out")
+  optOutReason String? @map("opt_out_reason")
+  optedOutAt   DateTime? @map("opted_out_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant                   @relation(fields: [tenantId], references: [id])
+  account      Account?                 @relation(fields: [accountId], references: [id])
+  participants InteractionParticipant[]
+  dealContacts DealContact[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@map("contacts")
+}
+
+// ─── Deal ────────────────────────────────────────────────────────────────────
+model Deal {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  accountId String   @map("account_id")
+  name      String
+  stage     String?
+  amount    Float?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  account      Account       @relation(fields: [accountId], references: [id])
+  interactions Interaction[]
+  dealContacts DealContact[]
+
+  @@index([tenantId])
+  @@index([tenantId, accountId])
+  @@map("deals")
+}
+
+// ─── Interaction ─────────────────────────────────────────────────────────────
+model Interaction {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  accountId   String?  @map("account_id")
+  dealId      String?  @map("deal_id")
+  type        String   // email | call | meeting
+  timestamp   DateTime
+  summary     String?
+  direction   String?  // inbound | outbound
+  subject     String?
+  sourceId    String?  @map("source_id")   // external ID from source system
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant                   @relation(fields: [tenantId], references: [id])
+  account      Account?                 @relation(fields: [accountId], references: [id])
+  deal         Deal?                    @relation(fields: [dealId], references: [id])
+  participants InteractionParticipant[]
+
+  @@index([tenantId])
+  @@index([tenantId, accountId])
+  @@index([tenantId, dealId])
+  @@map("interactions")
+}
+
+// ─── InteractionParticipant (CORE edge table) ─────────────────────────────────
+model InteractionParticipant {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  interactionId String   @map("interaction_id")
+  contactId     String   @map("contact_id")
+  email         String
+  role          String?  // sender | recipient | attendee
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  interaction Interaction @relation(fields: [interactionId], references: [id])
+  contact     Contact     @relation(fields: [contactId], references: [id])
+
+  @@unique([interactionId, contactId])
+  @@index([tenantId])
+  @@index([tenantId, interactionId])
+  @@index([tenantId, contactId])
+  @@map("interaction_participants")
+}
+
+// ─── DealContact ─────────────────────────────────────────────────────────────
+model DealContact {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  dealId    String   @map("deal_id")
+  contactId String   @map("contact_id")
+  role      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  deal    Deal    @relation(fields: [dealId], references: [id])
+  contact Contact @relation(fields: [contactId], references: [id])
+
+  @@unique([dealId, contactId])
+  @@index([tenantId])
+  @@map("deal_contacts")
+}
+
+// ─── RawInteraction ──────────────────────────────────────────────────────────
+model RawInteraction {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  source      String   // hubspot | mock | api
+  rawPayload  Json     @map("raw_payload")
+  status      String   @default("pending") // pending | processed | failed
+  processedAt DateTime? @map("processed_at")
+  errorMsg    String?  @map("error_msg")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("raw_interactions")
+}
+
+// ─── ExportLog ───────────────────────────────────────────────────────────────
+model ExportLog {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  scope         String   // account | deal
+  scopeId       String   @map("scope_id")
+  format        String   // json | csv
+  recordCount   Int      @map("record_count")
+  excludedCount Int      @default(0) @map("excluded_count")
+  redactedCount Int      @default(0) @map("redacted_count")
+  requestedBy   String?  @map("requested_by")
+  filters       Json?    @map("filters")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("export_logs")
+}
+
+// ─── ComplianceSetting ──────────────────────────────────────────────────────
+model ComplianceSetting {
+  id         String               @id @default(uuid())
+  tenantId   String               @unique @map("tenant_id")
+  exportMode ComplianceExportMode @default(EXCLUDE_INTERACTION) @map("export_mode")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("compliance_settings")
+}
