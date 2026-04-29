@@ -15,9 +15,16 @@ export class HubspotController {
     return this.hubspotService.syncLatest(tenantId, dto.limit ?? 20);
   }
 
+  @Post('sync-companies')
+  syncCompanies(@Req() req: Request, @Body() dto: HubspotSyncDto) {
+    const { tenantId } = getRequestAuth(req);
+    return this.hubspotService.syncCompanies(tenantId, dto.limit ?? 50);
+  }
+
   @Post('webhook')
   webhook(@Req() req: Request, @Body() dto: HubspotWebhookDto) {
     const { tenantId } = getRequestAuth(req);
     return this.hubspotService.ingestWebhookEvents(tenantId, dto.events || []);
   }
 }
+

@@ -1,33 +1,31 @@
 # Revenue Data Backbone
 
-Revenue Data Backbone is a multi-tenant POC that ingests interaction data (email/call/meeting), resolves contacts and accounts deterministically, stores relationship edges in PostgreSQL, and exports compliant datasets.
+Revenue Data Backbone is an enterprise-grade, multi-tenant platform that ingests interaction data (email, call, meeting), resolves contacts and accounts deterministically, stores relationship edges in a highly scalable PostgreSQL graph model, and exports compliant datasets to external Data Clouds.
 
 Core flow:
 
-`Ingest -> Normalize -> Resolve -> Map -> Store -> Export`
+`Ingest -> Normalize -> Resolve -> Map -> Store -> Export / Data Cloud Push`
 
 ## Repository Structure
 
-- `revenue-backbone`: NestJS + Prisma + PostgreSQL backend
-- `revenue-frontend`: Next.js frontend
-- `problem_statement.md`: problem framing
-- `revenue_backbone_prd.md`: product requirements
-- `revenue_backbone_brd.md`: business requirements
+- `revenue-backbone`: NestJS + Prisma + PostgreSQL backend (Modular Monolith)
+- `revenue-frontend`: Next.js frontend (App Router + Tailwind + React Query)
+- `problem_statement.md`: Problem framing
+- `revenue_backbone_prd.md`: Product Requirements Document
+- `revenue_backbone_brd.md`: Business Requirements Document
 
-## Implemented Highlights
+## Enterprise Features Implemented
 
-- Deterministic identity resolution (exact email, no AI/fuzzy matching)
-- Revenue graph model via `interaction_participants` edge table
-- HubSpot connector endpoints (sync + webhook ingestion)
-- Compliance modes per tenant:
-  - `EXCLUDE_INTERACTION`
-  - `REDACT_PARTICIPANT`
-- Compliance metadata on contacts (`is_opted_out`, `opted_out_at`, `opt_out_reason`)
-- Export audit logging with immutable records
-- Tenant isolation at two layers:
-  - request-level tenant/user headers
-  - DB-level PostgreSQL RLS policies
-- Frontend graph UI + timeline + export logs + admin retry view
+- **Automated Data Capture Engine**: Deterministic identity resolution (exact email, no AI/fuzzy matching) with duplicate detection.
+- **Revenue Graph**: Relational model via `interaction_participants` edge table for O(1) traversals.
+- **AI Context Layer**: Structured JSON APIs providing pre-assembled account context for downstream AI.
+- **Data Cloud**: Outbound webhook-based push sync with automated retry and exponential backoff.
+- **Native Connectors**: HubSpot connector for contacts, companies, and webhook ingestion, plus Cron scheduling.
+- **Compliance Enforcement**: Configurable modes per tenant (`EXCLUDE_INTERACTION`, `REDACT_PARTICIPANT`).
+- **Export Governance**: Audit logging with immutable records for CSV, JSON, and Webhook exports.
+- **Strict Tenant Isolation**: 
+  - Application-level request boundaries.
+  - DB-level PostgreSQL Row Level Security (RLS) policies.
 
 ## Environment Variables
 
@@ -46,116 +44,63 @@ HUBSPOT_ACCESS_TOKEN=""
 NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
-## Setup
+## Setup & Run
 
-### 1) Backend install + DB migration
+### 1) Backend
 
 ```bash
 cd revenue-backbone
 npm install
 npm run prisma:generate
 npm run prisma:migrate
+# Optional: npm run prisma:seed
+npm run start:dev
 ```
 
-Optional seed:
+Backend runs on `http://localhost:3000`
 
-```bash
-npm run prisma:seed
-```
-
-### 2) Frontend install
+### 2) Frontend
 
 ```bash
 cd revenue-frontend
 npm install
-```
-
-## Run
-
-### Backend
-
-```bash
-cd revenue-backbone
-npm run start:dev
-```
-
-Backend: `http://localhost:3000`
-
-### Frontend
-
-```bash
-cd revenue-frontend
 npm run dev -- --port 3001
 ```
 
-Frontend: `http://localhost:3001`
-
-## Auth Headers for Protected APIs
-
-All protected backend routes require:
-
-- `x-tenant-id: <tenant-id>`
-- `x-user-id: <user-id>`
-
-`/tenants` bootstrap endpoints are public.
+Frontend runs on `http://localhost:3001`
 
 ## API Summary
 
 ### Tenant
-
-- `POST /tenants`
-- `GET /tenants`
-- `GET /tenants/:id`
+- `POST /tenants`, `GET /tenants`, `GET /tenants/:id`
 
 ### Ingestion
-
 - `POST /ingest`
 
-Payload example:
+### Accounts & Graph
+- `GET /accounts`, `GET /accounts/:id`, `GET /accounts/:id/interactions`
 
-```json
-{
-  "type": "email",
-  "timestamp": "2026-04-29T08:30:00.000Z",
-  "participants": [
-    { "email": "alice@example.com", "firstName": "Alice", "role": "sender" },
-    { "email": "bob@example.com", "role": "recipient" }
-  ],
-  "summary": "Quarterly update",
-  "subject": "Q2 planning",
-  "direction": "outbound",
-  "sourceId": "crm-evt-123",
-  "source": "api"
-}
-```
-
-### Accounts
-
-- `GET /accounts`
-- `GET /accounts/:id`
-- `GET /accounts/:id/interactions`
+### AI Context Layer
+- `GET /ai-context/account/:accountId`
+- `GET /ai-context/contact/:contactId`
 
 ### Compliance
+- `PATCH /contacts/:id/opt-out`, `PATCH /contacts/:id/opt-in`
+- `GET /contacts/compliance/settings`, `PATCH /contacts/compliance/settings`
 
-- `PATCH /contacts/:id/opt-out`
-- `PATCH /contacts/:id/opt-in`
-- `GET /contacts/compliance/settings`
-- `PATCH /contacts/compliance/settings`
-
-### Export
-
-- `GET /export/account/:id?format=json`
-- `GET /export/account/:id?format=csv`
-- `GET /export/deal/:id?format=json`
-- `GET /export/deal/:id?format=csv`
+### Export & Data Cloud
+- `GET /export/account/:id?format=json|csv`
+- `GET /export/deal/:id?format=json|csv`
 - `GET /export/logs`
+- `POST /data-cloud/push/account/:accountId`
+- `POST /data-cloud/push/tenant`
+- `GET /data-cloud/history`
 
-### HubSpot
-
-- `POST /connectors/hubspot/sync`
+### Connectors (HubSpot)
+- `POST /connectors/hubspot/sync` (Contacts)
+- `POST /connectors/hubspot/sync-companies`
 - `POST /connectors/hubspot/webhook`
 
 ### Admin
-
 - `GET /admin/raw-interactions?status=failed`
 - `POST /admin/raw-interactions/:id/retry`

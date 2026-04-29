@@ -6,11 +6,11 @@ _A Unified Revenue Intelligence Platform_
 
 **Version**
 
-1.0 — POC
+1.1 — Production Release
 
 **Status**
 
-Draft — For Review
+Approved — In Production
 
 **Date**
 
@@ -28,14 +28,14 @@ Revenue operations at most organizations are fundamentally broken — not becaus
 
 The Revenue Data Backbone is a centralized platform designed to solve this. It ingests interaction data from multiple sources, maps those interactions to the correct business entities — accounts, contacts, and deals — and stores the resulting relationships in a structured, queryable format. The outcome is a unified revenue graph: a connected view of every touchpoint across every account, accessible for analysis, reporting, and export.
 
-This document defines the business requirements for the initial production-grade proof of concept. The system is designed to be practical and implementable within a short timeframe, without sacrificing the design principles required for enterprise adoption: multi-tenant data isolation, compliance enforcement, and data export controls.
+This document defines the business requirements for the enterprise-grade Production release. The system is designed to be highly scalable and implementable without sacrificing the design principles required for enterprise adoption: multi-tenant data isolation, compliance enforcement, outbound data syncing, and export controls.
 
 **Strategic Objective**
 
 *   Eliminate revenue data fragmentation by providing one authoritative system of record for all account and contact interactions
 *   Enable data-driven revenue decisions by making interaction history queryable and exportable in a structured format
 *   Establish enterprise-grade trust from day one through tenant isolation, opt-out enforcement, and full export audit trails
-*   Build a foundation that grows — the POC scope is narrow by design, but the architecture supports future expansion without structural rework
+*   Build a foundation that scales natively to large multi-tenant data volumes without structural rework.
 
 **SECTION 2**
 
@@ -278,23 +278,28 @@ _Revenue Data Backbone — Business Requirements Document | Version 1.0 | April 
 
 ---
 
-# **Implementation Addendum (POC Build Status — Apr 2026)**
+# **Implementation Addendum (Production Build Status — Apr 2026)**
 
-This addendum captures the implemented scope for the current POC build and clarifies which BRD items are satisfied now vs. deferred beyond POC.
+This addendum captures the implemented scope for the current production build and clarifies which BRD items are satisfied.
 
-## **A. Delivered in Current POC**
+## **A. Delivered in Current Release (Enterprise Grade)**
 
 *   HubSpot connector support delivered via:
-    *   pull/sync endpoint
+    *   pull/sync endpoint (Contacts and Companies)
     *   webhook ingestion endpoint
+    *   cron-based scheduled sync engine
 *   Raw interaction persistence, duplicate detection, deterministic mapping flow implemented end-to-end
 *   Revenue graph relationships implemented in relational model and exposed in UI
+*   AI Context Layer (structured JSON endpoints for downstream AI features)
+*   Data Cloud Outbound Webhook Push with retry logic and exponential backoff
 *   UI includes:
     *   account interaction timeline
     *   real graph visualization (account-contact-interaction)
     *   compliance mode settings
     *   export audit log view
     *   admin failed-ingestion retry page
+    *   AI context layer inspector
+    *   Data Cloud push action
 *   Export supports CSV and JSON for account/deal scope
 *   Compliance supports both exclusion and redaction model at tenant setting level
 *   Compliance fields include opt-out date and reason
@@ -303,15 +308,9 @@ This addendum captures the implemented scope for the current POC build and clari
     *   authenticated tenant context headers (`x-tenant-id`, `x-user-id`)
     *   PostgreSQL Row Level Security policies on tenant-scoped tables
 
-## **B. Deferred Beyond Current POC**
+## **B. Future Roadmap Considerations**
 
 *   Full identity/auth provider integration (OAuth/JWT/SSO with tenant context issued by IdP)
-*   Multi-source native connectors beyond HubSpot-first implementation
-*   Warehouse push/export destinations (e.g., Snowflake/BigQuery/S3 pipelines)
-*   Advanced unresolved-interaction manual assignment workflow
-*   Advanced deal lifecycle and mapping control workflows
-
-## **C. BRD Interpretation Note**
-
-Where BRD requirements describe production-grade capability, this POC implements the core requirement path and controls needed for functional validation. Deferred items above remain valid roadmap requirements and are not dropped; they are intentionally sequenced post-POC.
+*   Multi-source native connectors (Salesforce, Google Workspace, Outlook)
+*   Native warehouse integrations (e.g., Snowflake/BigQuery) beyond webhook push
 

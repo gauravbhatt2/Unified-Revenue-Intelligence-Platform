@@ -1,10 +1,10 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { fetchAccountInteractions, fetchAccount } from '@/lib/api';
+import { fetchAccountInteractions, fetchAccount, fetchAiAccountContext } from '@/lib/api';
 import { InteractionCard } from '@/components/interaction-card';
 import { InteractionSkeleton } from '@/components/interaction-skeleton';
 import { ExportButton } from '@/components/export-button';
@@ -12,6 +12,7 @@ import { IngestForm } from '@/components/ingest-form';
 import { ComplianceSettings } from '@/components/compliance-settings';
 import { ExportLogs } from '@/components/export-logs';
 import { HubspotSync } from '@/components/hubspot-sync';
+import { DataCloudPush } from '@/components/data-cloud-push';
 import { RevenueGraphView } from '@/components/revenue-graph-view';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,8 @@ import {
   Activity,
   AlertCircle,
   RefreshCw,
+  Brain,
+  X,
 } from 'lucide-react';
 
 interface PageProps {
@@ -36,6 +39,13 @@ export default function AccountPage({ params }: PageProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tenantId = searchParams.get('tenantId') ?? '';
+  const [showAiContext, setShowAiContext] = useState(false);
+
+  const { data: aiContext, isLoading: aiContextLoading } = useQuery({
+    queryKey: ['ai-context', tenantId, accountId],
+    queryFn: () => fetchAiAccountContext(tenantId, accountId),
+    enabled: !!tenantId && !!accountId && showAiContext,
+  });
 
   const {
     data: account,
@@ -110,6 +120,14 @@ export default function AccountPage({ params }: PageProps) {
           <div className="flex items-center gap-2">
             {tenantId && <HubspotSync tenantId={tenantId} />}
             <button
+              onClick={() => setShowAiContext((v) => !v)}
+              className="flex items-center gap-1 text-xs text-violet-500 hover:text-violet-700 transition-colors px-2 py-1 rounded-md hover:bg-violet-50"
+              title="View AI Context"
+            >
+              <Brain className="h-3.5 w-3.5" />
+              <span>AI Context</span>
+            </button>
+            <button
               onClick={() => refetch()}
               disabled={isFetching}
               className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors disabled:opacity-50"
@@ -117,13 +135,53 @@ export default function AccountPage({ params }: PageProps) {
               <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
             </button>
             {tenantId && accountId && (
-              <ExportButton tenantId={tenantId} accountId={accountId} />
+              <>
+                <DataCloudPush tenantId={tenantId} accountId={accountId} />
+                <ExportButton tenantId={tenantId} accountId={accountId} />
+              </>
             )}
           </div>
         </div>
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-8">
+        {/* AI Context Panel */}
+        <AnimatePresence>
+          {showAiContext && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-6 overflow-hidden"
+            >
+              <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-violet-600" />
+                    <p className="text-sm font-semibold text-violet-900">AI Context Layer</p>
+                    <Badge variant="outline" className="text-xs border-violet-200 text-violet-600">Structured Payload</Badge>
+                  </div>
+                  <button onClick={() => setShowAiContext(false)} className="text-violet-400 hover:text-violet-700">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-violet-700 mb-3">
+                  Pre-assembled context for downstream AI features (summarisation, scoring, next-best-action). Available at <code className="bg-violet-100 px-1 rounded text-[10px]">GET /ai-context/account/{'{id}'}</code>
+                </p>
+                {aiContextLoading ? (
+                  <div className="h-32 bg-violet-100 rounded-lg animate-pulse" />
+                ) : aiContext ? (
+                  <pre className="bg-white border border-violet-200 rounded-lg p-4 text-xs text-gray-800 overflow-auto max-h-96 font-mono leading-relaxed">
+                    {JSON.stringify(aiContext, null, 2)}
+                  </pre>
+                ) : (
+                  <p className="text-xs text-violet-500">No context available.</p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Account Header */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { IngestionService } from '../../ingestion/ingestion.service';
 import { IngestInteractionDto } from '../../ingestion/dto/ingest-interaction.dto';
+import { PrismaService } from '../../../common/prisma.service';
 
 type HubspotObjectType = 'emails' | 'calls' | 'meetings';
 
@@ -8,7 +9,10 @@ type HubspotObjectType = 'emails' | 'calls' | 'meetings';
 export class HubspotService {
   private readonly logger = new Logger(HubspotService.name);
 
-  constructor(private readonly ingestionService: IngestionService) {}
+  constructor(
+    private readonly ingestionService: IngestionService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async syncLatest(tenantId: string, limit = 20) {
     if (!tenantId) throw new BadRequestException('tenantId is required');
@@ -170,4 +174,80 @@ export class HubspotService {
     this.logger.debug(`Ignored HubSpot event type: ${subscriptionType}`);
     return null;
   }
+
+  // ── Companies Sync ──────────────────────────────────────────────────────────
+
+  async syncCompanies(tenantId: string, limit = 50) {
+    if (!tenantId) throw new BadRequestException('tenantId is required');
+
+    const token = process.env.HUBSPOT_ACCESS_TOKEN;
+    if (!token) {
+      throw new BadRequestException('HUBSPOT_ACCESS_TOKEN is not configured');
+    }
+
+    const companies = await this.fetchCompanies(token, limit);
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    await this.prisma.withTenant(tenantId, async (tx) => {
+      for (const company of companies) {
+        const props = company.properties || {};
+        const domain = (props.domain || '').toLowerCase().trim();
+        const name = props.name || domain || `company-${company.id}`;
+
+        if (!domain) {
+          skipped++;
+          continue;
+        }
+
+        const result = await tx.account.upsert({
+          where: { tenantId_domain: { tenantId, domain } },
+          update: { name },
+          create: { tenantId, name, domain },
+        });
+
+        if (result.createdAt.getTime() === result.updatedAt.getTime()) {
+          created++;
+        } else {
+          updated++;
+        }
+      }
+    });
+
+    this.logger.log(
+      `HubSpot companies sync: fetched=${companies.length}, created=${created}, updated=${updated}, skipped=${skipped}`,
+    );
+
+    return {
+      success: true,
+      source: 'hubspot-companies',
+      totalFetched: companies.length,
+      created,
+      updated,
+      skipped,
+    };
+  }
+
+  private async fetchCompanies(
+    token: string,
+    limit: number,
+  ): Promise<Record<string, any>[]> {
+    const res = await fetch(
+      `https://api.hubapi.com/crm/v3/objects/companies?limit=${limit}&properties=name,domain&archived=false`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      this.logger.error(`HubSpot companies fetch failed: ${res.status} ${body}`);
+      throw new BadRequestException(`HubSpot companies fetch failed: ${res.status}`);
+    }
+
+    const data = (await res.json()) as { results?: Record<string, any>[] };
+    return data.results || [];
+  }
 }
+

@@ -1,6 +1,6 @@
 # Product Requirements Document (PRD)
 
-## Revenue Data Backbone (POC)
+## Revenue Data Backbone (Production Release)
 
 ---
 
@@ -245,18 +245,18 @@ Each interaction can have multiple participants, and each participant is resolve
 
 ---
 
-## 11. Current POC Implementation Status (Apr 2026)
+## 11. Current Implementation Status (Apr 2026 - Production)
 
-### Implemented
+### Implemented (Enterprise Grade)
 
 * Ingestion pipeline (`ingest -> normalize -> resolve -> map -> store`) with raw payload persistence
 * Duplicate detection by `(tenant_id, type, source_id)`
 * Deterministic contact/account resolution by normalized email/domain
 * Revenue graph storage via `interaction_participants` edge table
+* AI Context Layer providing pre-assembled JSON context for downstream AI
+* Data Cloud Outbound Push with automated retry and exponential backoff
 * Account/deal export in JSON and CSV
-* Compliance enforcement with tenant-configurable export mode:
-  * `EXCLUDE_INTERACTION`
-  * `REDACT_PARTICIPANT`
+* Compliance enforcement with tenant-configurable export mode (`EXCLUDE_INTERACTION`, `REDACT_PARTICIPANT`)
 * Compliance metadata persistence (`is_opted_out`, `opted_out_at`, `opt_out_reason`)
 * Export audit logging (`requested_by`, scope/filters, `record_count`, `excluded_count`, `redacted_count`, timestamp)
 * Export log immutability enforced at DB layer (no update/delete)
@@ -264,21 +264,17 @@ Each interaction can have multiple participants, and each participant is resolve
   * request-level tenant binding via `x-tenant-id` + `x-user-id`
   * PostgreSQL Row Level Security (RLS) on tenant-scoped tables
 * HubSpot connector endpoints:
-  * pull/sync endpoint
+  * pull/sync endpoint for contacts and companies
   * webhook ingestion endpoint
+  * cron-based scheduled sync
 * Admin operations:
   * failed raw interaction list
   * retry endpoint
 * Frontend:
   * account timeline
   * real revenue graph UI (account-contact-interaction)
+  * AI context layer inspector
+  * Data Cloud push action
   * compliance settings panel
   * export logs panel
   * admin retry screen
-
-### Intentionally Out of Scope for this POC
-
-* OAuth auth flow and full IdP integration (current auth model is header-based tenant/user context)
-* AI-powered mapping/resolution
-* Warehouse push/export destinations (Snowflake/BigQuery/etc.)
-* Advanced deal lifecycle and mapping control workflows

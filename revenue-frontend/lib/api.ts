@@ -164,3 +164,47 @@ export const retryRawInteraction = (
   request(`/admin/raw-interactions/${rawInteractionId}/retry`, {
     method: 'POST',
   }, tenantId);
+
+// ─── AI Context Layer ─────────────────────────────────────────────────────────
+
+export const fetchAiAccountContext = (
+  tenantId: string,
+  accountId: string,
+): Promise<Record<string, any>> =>
+  request(`/ai-context/account/${accountId}`, undefined, tenantId);
+
+// ─── Data Cloud (Outbound Sync) ───────────────────────────────────────────────
+
+export const pushAccountToCloud = (
+  tenantId: string,
+  accountId: string,
+  webhookUrl: string,
+): Promise<Record<string, any>> =>
+  request(`/data-cloud/push/account/${accountId}`, {
+    method: 'POST',
+    body: JSON.stringify({ webhookUrl }),
+  }, tenantId);
+
+export const pushTenantToCloud = (
+  tenantId: string,
+  webhookUrl: string,
+): Promise<Record<string, any>> =>
+  request(`/data-cloud/push/tenant`, {
+    method: 'POST',
+    body: JSON.stringify({ webhookUrl }),
+  }, tenantId);
+
+export const fetchSyncHistory = (
+  tenantId: string,
+): Promise<Record<string, any>[]> =>
+  request(`/data-cloud/history`, undefined, tenantId);
+
+// ─── HubSpot Companies ───────────────────────────────────────────────────────
+
+export const syncHubspotCompanies = (
+  tenantId: string,
+): Promise<Record<string, any>> =>
+  request(`/connectors/hubspot/sync-companies`, {
+    method: 'POST',
+    body: JSON.stringify({ limit: 50 }),
+  }, tenantId);

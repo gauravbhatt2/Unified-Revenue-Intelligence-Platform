@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { fetchTenants, createTenant, fetchAccounts } from '@/lib/api';
 import { AccountSelection } from '@/components/account-selection';
 import { IngestForm } from '@/components/ingest-form';
+import { HubspotCompaniesSync } from '@/components/hubspot-companies-sync';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -209,6 +210,7 @@ export default function HomePage() {
                   <Shield className="h-4 w-4" />
                   Admin Logs
                 </Link>
+                <HubspotCompaniesSync tenantId={tenantInput} />
                 {accounts && accounts.length > 0 && (
                   <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
                     <IngestForm tenantId={tenantInput} buttonLabel="Quick Ingest" />

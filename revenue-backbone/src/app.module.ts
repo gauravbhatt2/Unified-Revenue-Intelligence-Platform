@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
@@ -11,10 +12,13 @@ import { ExportModule } from './modules/export/export.module';
 import { AccountsModule } from './modules/accounts/accounts.module';
 import { HubspotModule } from './modules/connectors/hubspot/hubspot.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { AiContextModule } from './modules/ai-context/ai-context.module';
+import { DataCloudModule } from './modules/data-cloud/data-cloud.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     TenantModule,
     NormalizationModule,
@@ -26,6 +30,8 @@ import { AdminModule } from './modules/admin/admin.module';
     AccountsModule,
     HubspotModule,
     AdminModule,
+    AiContextModule,
+    DataCloudModule,
   ],
 })
 export class AppModule {}
