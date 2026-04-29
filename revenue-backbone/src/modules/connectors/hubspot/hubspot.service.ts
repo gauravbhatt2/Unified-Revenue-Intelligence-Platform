@@ -18,17 +18,11 @@ export class HubspotService {
       throw new BadRequestException('HUBSPOT_ACCESS_TOKEN is not configured');
     }
 
-    const [emails, calls, meetings] = await Promise.all([
-      this.fetchObjects(token, 'emails', limit),
-      this.fetchObjects(token, 'calls', limit),
-      this.fetchObjects(token, 'meetings', limit),
-    ]);
+    const contacts = await this.fetchContacts(token, limit);
 
-    const candidates = [
-      ...emails.map((e: any) => this.mapRecordToIngest('email', e)),
-      ...calls.map((c: any) => this.mapRecordToIngest('call', c)),
-      ...meetings.map((m: any) => this.mapRecordToIngest('meeting', m)),
-    ].filter((x): x is IngestInteractionDto => Boolean(x));
+    const candidates = contacts
+      .map((c: any) => this.mapContactToIngest(c))
+      .filter((x): x is IngestInteractionDto => Boolean(x));
 
     const results = await Promise.allSettled(
       candidates.map((dto) => this.ingestionService.ingest(tenantId, dto)),
@@ -36,12 +30,14 @@ export class HubspotService {
     const ingested = results.filter((r) => r.status === 'fulfilled').length;
     const failed = results.length - ingested;
 
+    this.logger.log(`HubSpot sync: Fetched ${contacts.length} contacts, ingested ${ingested}`);
+
     return {
       success: true,
       source: 'hubspot',
       ingested,
       failed,
-      totalFetched: candidates.length,
+      totalFetched: contacts.length,
     };
   }
 
@@ -68,13 +64,12 @@ export class HubspotService {
     };
   }
 
-  private async fetchObjects(
+  private async fetchContacts(
     token: string,
-    type: HubspotObjectType,
     limit: number,
   ): Promise<Record<string, any>[]> {
     const res = await fetch(
-      `https://api.hubapi.com/crm/v3/objects/${type}?limit=${limit}&archived=false`,
+      `https://api.hubapi.com/crm/v3/objects/contacts?limit=${limit}&properties=email,firstname,lastname&archived=false`,
       {
         headers: { Authorization: `Bearer ${token}` },
       },
@@ -82,33 +77,35 @@ export class HubspotService {
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      throw new BadRequestException(`HubSpot ${type} fetch failed: ${res.status} ${body}`);
+      throw new BadRequestException(`HubSpot contacts fetch failed: ${res.status} ${body}`);
     }
 
     const data = (await res.json()) as { results?: Record<string, any>[] };
     return data.results || [];
   }
 
-  private mapRecordToIngest(
-    type: 'email' | 'call' | 'meeting',
+  private mapContactToIngest(
     record: Record<string, any>,
   ): IngestInteractionDto | null {
     const p = record.properties || {};
-    const timestamp = p.hs_timestamp || p.hs_createdate || p.createdate || record.createdAt;
-    if (!timestamp) return null;
+    if (!p.email) return null;
 
-    const participants = this.extractParticipants(p);
-    if (participants.length === 0) return null;
+    const timestamp = p.createdate || record.createdAt || new Date().toISOString();
 
     return {
-      type,
+      type: 'email',
       timestamp: new Date(timestamp).toISOString(),
-      participants,
-      summary: p.hs_call_body || p.hs_meeting_body || p.hs_email_text || p.hs_body_preview || undefined,
-      subject: p.hs_email_subject || p.hs_call_title || p.hs_meeting_title || undefined,
-      direction: this.mapDirection(p.hs_email_direction || p.hs_call_direction),
+      participants: [
+        {
+          email: p.email.toLowerCase(),
+          firstName: p.firstname || undefined,
+          lastName: p.lastname || undefined,
+          role: 'receiver',
+        },
+      ],
+      summary: 'HubSpot contact sync',
       source: 'hubspot',
-      sourceId: record.id || p.hs_object_id,
+      sourceId: record.id,
     };
   }
 

@@ -52,7 +52,7 @@ export function AccountSelection({ tenantId, onSelect }: AccountSelectionProps) 
   if (!accounts || accounts.length === 0) {
     return (
       <p className="text-xs text-gray-500">
-        No accounts found - use ingest to create data.
+        No accounts yet. Add your first interaction to automatically create accounts.
       </p>
     );
   }

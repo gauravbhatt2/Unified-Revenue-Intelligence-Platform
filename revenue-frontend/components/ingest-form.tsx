@@ -13,7 +13,9 @@ import { cn } from '@/lib/utils';
 
 interface IngestFormProps {
   tenantId: string;
-  accountId: string;
+  accountId?: string;
+  onSuccessCallback?: () => void;
+  buttonLabel?: string;
 }
 
 interface ParticipantField {
@@ -26,7 +28,7 @@ interface ParticipantField {
 const INTERACTION_TYPES: InteractionType[] = ['email', 'call', 'meeting'];
 const ROLES = ['sender', 'recipient', 'attendee'];
 
-export function IngestForm({ tenantId, accountId }: IngestFormProps) {
+export function IngestForm({ tenantId, accountId, onSuccessCallback, buttonLabel }: IngestFormProps) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -65,7 +67,14 @@ export function IngestForm({ tenantId, accountId }: IngestFormProps) {
       setSummary('');
       setSubject('');
       setParticipants([{ email: '', firstName: '', lastName: '', role: 'sender' }]);
-      queryClient.invalidateQueries({ queryKey: ['interactions', tenantId, accountId] });
+      
+      queryClient.invalidateQueries({ queryKey: ['accounts', tenantId] });
+      if (accountId) {
+        queryClient.invalidateQueries({ queryKey: ['interactions', tenantId, accountId] });
+      }
+      if (onSuccessCallback) {
+        onSuccessCallback();
+      }
     },
     onError: (err: Error) => {
       toast.error('Ingestion failed', { description: err.message });
@@ -93,7 +102,7 @@ export function IngestForm({ tenantId, accountId }: IngestFormProps) {
         onClick={() => setOpen((v) => !v)}
       >
         {open ? <ChevronUp className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
-        {open ? 'Close' : 'Quick Ingest'}
+        {open ? 'Close' : (buttonLabel || 'Quick Ingest')}
       </Button>
 
       <AnimatePresence>
@@ -108,7 +117,7 @@ export function IngestForm({ tenantId, accountId }: IngestFormProps) {
             <Card className="border-indigo-100 bg-indigo-50/30">
               <CardHeader className="pb-3 pt-4 px-5">
                 <p className="text-sm font-semibold text-gray-800">Ingest New Interaction</p>
-                <p className="text-xs text-gray-500">Add a test interaction linked to this account</p>
+                <p className="text-xs text-gray-500">Add a test interaction. If the account doesn't exist, it will be created automatically.</p>
               </CardHeader>
               <CardContent className="px-5 pb-5 space-y-4">
                 {/* Type + Direction */}
