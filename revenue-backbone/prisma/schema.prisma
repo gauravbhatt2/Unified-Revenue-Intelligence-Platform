@@ -191,6 +191,9 @@ model ExportLog {
   excludedCount Int      @default(0) @map("excluded_count")
   redactedCount Int      @default(0) @map("redacted_count")
   requestedBy   String?  @map("requested_by")
+  status        String?  // success | failed
+  attempts      Int      @default(1)
+  errorMsg      String?  @map("error_msg")
   filters       Json?    @map("filters")
   createdAt     DateTime @default(now()) @map("created_at")
 

@@ -27,7 +27,7 @@ export function ExportLogs({ tenantId }: { tenantId: string }) {
                 <th className="text-left py-1">Fmt</th>
                 <th className="text-right py-1">Records</th>
                 <th className="text-right py-1">Excluded</th>
-                <th className="text-right py-1">Redacted</th>
+                <th className="text-right py-1">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -37,8 +37,12 @@ export function ExportLogs({ tenantId }: { tenantId: string }) {
                   <td className="py-1">{log.scope}</td>
                   <td className="py-1">{log.format}</td>
                   <td className="py-1 text-right">{log.recordCount}</td>
-                  <td className="py-1 text-right">{log.excludedCount}</td>
-                  <td className="py-1 text-right">{log.redactedCount}</td>
+                  <td className="py-1 text-right text-orange-600">{log.excludedCount}</td>
+                  <td className="py-1 text-right">
+                    <span className={log.status === 'success' ? 'text-emerald-600' : 'text-red-600'}>
+                      {log.status || 'success'}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

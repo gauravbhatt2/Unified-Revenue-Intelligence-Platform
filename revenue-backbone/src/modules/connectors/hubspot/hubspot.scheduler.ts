@@ -36,7 +36,7 @@ export class HubspotScheduler {
       try {
         const result = await this.hubspotService.syncLatest(tenant.id, 50);
         this.logger.log(
-          `Scheduled sync for tenant "${tenant.name}": fetched=${result.totalFetched}, ingested=${result.ingested}, failed=${result.failed}`,
+          `Scheduled sync for tenant "${tenant.name}": created=${result.created}, updated=${result.updated}, failed=${result.failed}`,
         );
       } catch (error) {
         this.logger.error(

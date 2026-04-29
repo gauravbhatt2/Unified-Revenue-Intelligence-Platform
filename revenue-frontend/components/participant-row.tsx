@@ -8,7 +8,8 @@ import { optOutContact, optInContact } from '@/lib/api';
 import type { Participant } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mail, UserX, UserCheck, User } from 'lucide-react';
+import { Mail, UserX, UserCheck, User, Info } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface ParticipantRowProps {
@@ -56,12 +57,13 @@ export function ParticipantRow({ participant, tenantId, accountId }: Participant
     <motion.div
       layout
       className={cn(
-        'flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors',
+        'flex flex-col rounded-lg px-3 py-2 text-sm transition-colors',
         localOptedOut ? 'bg-red-50 border border-red-100' : 'bg-gray-50 border border-gray-100',
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <div className={cn(
+      <div className="flex items-center justify-between min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={cn(
           'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
           localOptedOut ? 'bg-red-100 text-red-500' : 'bg-indigo-50 text-indigo-500',
         )}>
@@ -128,6 +130,17 @@ export function ParticipantRow({ participant, tenantId, accountId }: Participant
           )}
         </AnimatePresence>
       </div>
+      </div>
+      
+      {localOptedOut && participant.contact?.optedOutAt && (
+        <div className="w-full mt-2 pt-2 border-t border-red-100 flex items-center justify-between text-xs text-red-500">
+          <div className="flex items-center gap-1.5">
+            <Info className="h-3 w-3" />
+            <span>Reason: {participant.contact?.optOutReason || 'User requested opt-out'}</span>
+          </div>
+          <span>Opted out {formatDistanceToNow(new Date(participant.contact.optedOutAt), { addSuffix: true })}</span>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { ComplianceService } from '../compliance/compliance.service';
 
 /**
  * Data Cloud Service
@@ -17,7 +18,10 @@ import { PrismaService } from '../../common/prisma.service';
 export class DataCloudService {
   private readonly logger = new Logger(DataCloudService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly compliance: ComplianceService,
+  ) {}
 
   /**
    * Push account data to an external webhook URL.
@@ -67,6 +71,24 @@ export class DataCloudService {
         throw new NotFoundException(`Account ${accountId} not found for tenant ${tenantId}`);
       }
 
+      // Apply Compliance policies
+      const { interactions: compliantInteractions, excludedCount, redactedCount } =
+        await this.compliance.getSettings(tenantId).then(async (settings) => {
+          if (settings.exportMode === 'REDACT_PARTICIPANT') {
+            return {
+              interactions: this.compliance.redactOptedOut(account.interactions),
+              excludedCount: 0,
+              redactedCount: this.compliance.countOptedOutParticipants(account.interactions),
+            };
+          }
+          const filtered = this.compliance.filterOptedOut(account.interactions);
+          return {
+            interactions: filtered,
+            excludedCount: account.interactions.length - filtered.length,
+            redactedCount: 0,
+          };
+        });
+
       // Build structured payload
       const payload = {
         _meta: {
@@ -75,6 +97,8 @@ export class DataCloudService {
           exportedAt: new Date().toISOString(),
           tenantId,
           type: 'account_sync',
+          excludedCount,
+          redactedCount,
         },
         account: {
           id: account.id,
@@ -88,20 +112,18 @@ export class DataCloudService {
           lastName: c.lastName,
         })),
         deals: account.deals,
-        interactions: account.interactions.map((i) => ({
+        interactions: compliantInteractions.map((i: any) => ({
           id: i.id,
           type: i.type,
           timestamp: i.timestamp,
           summary: i.summary,
           subject: i.subject,
           direction: i.direction,
-          participants: i.participants
-            .filter((p) => !p.contact?.isOptedOut)
-            .map((p) => ({
-              email: p.email,
-              role: p.role,
-              name: [p.contact?.firstName, p.contact?.lastName].filter(Boolean).join(' ') || null,
-            })),
+          participants: i.participants.map((p: any) => ({
+            email: p.email,
+            role: p.role,
+            name: [p.contact?.firstName, p.contact?.lastName].filter(Boolean).join(' ') || null,
+          })),
         })),
       };
 
@@ -115,9 +137,12 @@ export class DataCloudService {
           scope: 'account',
           scopeId: accountId,
           format: 'json',
-          recordCount: account.interactions.length,
-          excludedCount: 0,
-          redactedCount: 0,
+          recordCount: compliantInteractions.length,
+          excludedCount,
+          redactedCount,
+          status: result.success ? 'success' : 'failed',
+          attempts: result.attempts,
+          errorMsg: result.success ? null : `Status ${result.status}`,
           requestedBy: 'data-cloud-sync',
           filters: { webhookUrl, syncType: 'push' } as any,
         },

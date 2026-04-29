@@ -23,6 +23,8 @@ export interface Contact {
   firstName: string | null;
   lastName: string | null;
   isOptedOut: boolean;
+  optOutReason: string | null;
+  optedOutAt: string | null;
 }
 
 export interface Participant {
@@ -32,7 +34,7 @@ export interface Participant {
   contactId: string;
   email: string;
   role: string | null;
-  contact: Pick<Contact, 'id' | 'email' | 'firstName' | 'lastName' | 'isOptedOut' | 'accountId'>;
+  contact: Pick<Contact, 'id' | 'email' | 'firstName' | 'lastName' | 'isOptedOut' | 'accountId' | 'optedOutAt' | 'optOutReason'>;
 }
 
 export type InteractionType = 'email' | 'call' | 'meeting';
@@ -97,5 +99,8 @@ export interface ExportLog {
   excludedCount: number;
   redactedCount: number;
   requestedBy?: string | null;
+  status: 'success' | 'failed' | null;
+  attempts: number;
+  errorMsg?: string | null;
   createdAt: string;
 }

@@ -2,16 +2,16 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { syncHubspotCompanies } from '@/lib/api';
+import { syncHubspot } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Building2, Loader2 } from 'lucide-react';
+import { RefreshCw, Loader2 } from 'lucide-react';
 
 export function HubspotCompaniesSync({ tenantId }: { tenantId: string }) {
   const queryClient = useQueryClient();
   const syncMutation = useMutation({
-    mutationFn: () => syncHubspotCompanies(tenantId),
+    mutationFn: () => syncHubspot(tenantId),
     onSuccess: (res) => {
-      toast.success(`Companies synced: ${res.created} created, ${res.updated} updated`);
+      toast.success(`Sync complete: Created ${res.created} · Updated ${res.updated} · Failed ${res.failed}`);
       queryClient.invalidateQueries({ queryKey: ['accounts', tenantId] });
     },
     onError: (error: Error) => {
@@ -30,9 +30,9 @@ export function HubspotCompaniesSync({ tenantId }: { tenantId: string }) {
       {syncMutation.isPending ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
       ) : (
-        <Building2 className="h-3.5 w-3.5 mr-1" />
+        <RefreshCw className="h-3.5 w-3.5 mr-1" />
       )}
-      Sync Companies
+      Sync Data
     </Button>
   );
 }

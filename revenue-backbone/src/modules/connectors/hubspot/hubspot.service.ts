@@ -22,26 +22,65 @@ export class HubspotService {
       throw new BadRequestException('HUBSPOT_ACCESS_TOKEN is not configured');
     }
 
-    const contacts = await this.fetchContacts(token, limit);
+    let created = 0;
+    let updated = 0;
+    let failed = 0;
 
-    const candidates = contacts
-      .map((c: any) => this.mapContactToIngest(c))
-      .filter((x): x is IngestInteractionDto => Boolean(x));
+    // 1) Sync Companies
+    try {
+      const companies = await this.fetchCompanies(token, limit);
+      await this.prisma.withTenant(tenantId, async (tx) => {
+        for (const company of companies) {
+          const props = company.properties || {};
+          const domain = (props.domain || '').toLowerCase().trim();
+          const name = props.name || domain || `company-${company.id}`;
+          if (!domain) continue;
 
-    const results = await Promise.allSettled(
-      candidates.map((dto) => this.ingestionService.ingest(tenantId, dto)),
-    );
-    const ingested = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.length - ingested;
+          const result = await tx.account.upsert({
+            where: { tenantId_domain: { tenantId, domain } },
+            update: { name },
+            create: { tenantId, name, domain },
+          });
 
-    this.logger.log(`HubSpot sync: Fetched ${contacts.length} contacts, ingested ${ingested}`);
+          if (result.createdAt.getTime() === result.updatedAt.getTime()) {
+            created++;
+          } else {
+            updated++;
+          }
+        }
+      });
+    } catch (e) {
+      this.logger.error('Failed to sync companies', e);
+    }
+
+    // 2) Sync Contacts & Simulate Interactions
+    try {
+      const contacts = await this.fetchContacts(token, limit);
+      
+      const candidates = contacts
+        .map((c: any) => this.mapContactToIngest(c))
+        .filter((x): x is IngestInteractionDto => Boolean(x));
+
+      const results = await Promise.allSettled(
+        candidates.map((dto) => this.ingestionService.ingest(tenantId, dto)),
+      );
+      
+      const ingested = results.filter((r) => r.status === 'fulfilled').length;
+      created += ingested; // Treat ingested interactions as created
+      failed += results.length - ingested;
+
+    } catch (e) {
+      this.logger.error('Failed to sync contacts', e);
+    }
+
+    this.logger.log(`HubSpot full sync complete: created=${created}, updated=${updated}, failed=${failed}`);
 
     return {
       success: true,
       source: 'hubspot',
-      ingested,
+      created,
+      updated,
       failed,
-      totalFetched: contacts.length,
     };
   }
 
@@ -104,12 +143,12 @@ export class HubspotService {
           email: p.email.toLowerCase(),
           firstName: p.firstname || undefined,
           lastName: p.lastname || undefined,
-          role: 'receiver',
+          role: 'recipient',
         },
       ],
-      summary: 'HubSpot contact sync',
+      summary: 'HubSpot synced interaction (Simulated)',
       source: 'hubspot',
-      sourceId: record.id,
+      sourceId: `hs-contact-sync-${record.id}`,
     };
   }
 

@@ -11,6 +11,7 @@ import { ExportButton } from '@/components/export-button';
 import { IngestForm } from '@/components/ingest-form';
 import { ComplianceSettings } from '@/components/compliance-settings';
 import { ExportLogs } from '@/components/export-logs';
+import { DataCloudLogs } from '@/components/data-cloud-logs';
 import { HubspotSync } from '@/components/hubspot-sync';
 import { DataCloudPush } from '@/components/data-cloud-push';
 import { RevenueGraphView } from '@/components/revenue-graph-view';
@@ -275,7 +276,10 @@ export default function AccountPage({ params }: PageProps) {
         {tenantId && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
             <ComplianceSettings tenantId={tenantId} />
-            <ExportLogs tenantId={tenantId} />
+            <div className="flex flex-col gap-3">
+              <ExportLogs tenantId={tenantId} />
+              <DataCloudLogs tenantId={tenantId} />
+            </div>
           </div>
         )}
 

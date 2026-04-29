@@ -55,6 +55,7 @@ export class ExportService {
         excludedCount,
         redactedCount,
         requestedBy,
+        status: 'success',
         filters: { accountId },
       };
       await tx.exportLog.create({ data: accountLogData });
@@ -122,6 +123,7 @@ export class ExportService {
       excludedCount,
       redactedCount,
       requestedBy,
+      status: 'success',
       filters: { dealId },
     };
       await tx.exportLog.create({ data: dealLogData });
