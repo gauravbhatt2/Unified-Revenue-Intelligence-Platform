@@ -1,3 +1,6 @@
+-- CreateEnum
+CREATE TYPE "ComplianceExportMode" AS ENUM ('EXCLUDE_INTERACTION', 'REDACT_PARTICIPANT');
+
 -- CreateTable
 CREATE TABLE "tenants" (
     "id" TEXT NOT NULL,
@@ -30,6 +33,8 @@ CREATE TABLE "contacts" (
     "first_name" TEXT,
     "last_name" TEXT,
     "is_opted_out" BOOLEAN NOT NULL DEFAULT false,
+    "opt_out_reason" TEXT,
+    "opted_out_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -116,9 +121,23 @@ CREATE TABLE "export_logs" (
     "format" TEXT NOT NULL,
     "record_count" INTEGER NOT NULL,
     "excluded_count" INTEGER NOT NULL DEFAULT 0,
+    "redacted_count" INTEGER NOT NULL DEFAULT 0,
+    "requested_by" TEXT,
+    "filters" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "export_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "compliance_settings" (
+    "id" TEXT NOT NULL,
+    "tenant_id" TEXT NOT NULL,
+    "export_mode" "ComplianceExportMode" NOT NULL DEFAULT 'EXCLUDE_INTERACTION',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "compliance_settings_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -181,6 +200,12 @@ CREATE INDEX "raw_interactions_tenant_id_status_idx" ON "raw_interactions"("tena
 -- CreateIndex
 CREATE INDEX "export_logs_tenant_id_idx" ON "export_logs"("tenant_id");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "compliance_settings_tenant_id_key" ON "compliance_settings"("tenant_id");
+
+-- CreateIndex
+CREATE INDEX "compliance_settings_tenant_id_idx" ON "compliance_settings"("tenant_id");
+
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -222,3 +247,6 @@ ALTER TABLE "raw_interactions" ADD CONSTRAINT "raw_interactions_tenant_id_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "export_logs" ADD CONSTRAINT "export_logs_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "compliance_settings" ADD CONSTRAINT "compliance_settings_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
